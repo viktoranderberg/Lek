@@ -4,18 +4,90 @@ This file provides guidance to AI assistants (Claude and others) working in this
 
 ## Project Overview
 
-**Name:** Lek
-**Status:** Early-stage / scaffold — no application code exists yet.
+**Name:** Lek — Tjänstebilsbokning (shared company car booking system)
+**Stack:** React (Vite) + Node.js (Express) + SQLite (`better-sqlite3`)
+**Users:** 10 named users, no authentication — name selected from dropdown
 
-The repository currently contains only a `README.md` placeholder. The technology stack, directory layout, and development workflows are yet to be established.
-
-## Current Repository Structure
+## Repository Structure
 
 ```
 Lek/
-├── CLAUDE.md       # This file — AI assistant guidance
-└── README.md       # Project title placeholder
+├── server/
+│   ├── index.js              # Express entry point (port 3001)
+│   ├── db.js                 # SQLite setup + prepared statements
+│   └── routes/
+│       └── bookings.js       # REST API routes + hardcoded user list
+├── client/                   # Vite + React frontend
+│   ├── vite.config.js        # Proxies /api → localhost:3001
+│   ├── index.html
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx            # Main app, week navigation, modal state
+│       ├── api.js             # fetch wrappers (fetchUsers, fetchBookings, etc.)
+│       └── components/
+│           ├── WeekView.jsx   # Week calendar grid (07:00–20:00)
+│           ├── BookingModal.jsx # Create / view / delete booking popup
+│           └── UserSelect.jsx # Name dropdown
+├── package.json              # Root scripts (dev, server, client, install:all)
+├── .gitignore
+├── bookings.db               # SQLite database (auto-created, gitignored)
+└── CLAUDE.md                 # This file
 ```
+
+## Development Setup
+
+```bash
+# First time setup (installs and builds native SQLite addon)
+npm run install:all
+
+# Start both server and client in parallel
+npm run dev
+```
+
+- **Backend:** http://localhost:3001
+- **Frontend:** http://localhost:5173
+
+## API
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/users` | Returns list of 10 user names |
+| GET | `/api/bookings?start=&end=` | Bookings in ISO date range |
+| POST | `/api/bookings` | Create booking, 409 on conflict |
+| DELETE | `/api/bookings/:id` | Delete booking by ID |
+
+## Database Schema
+
+```sql
+CREATE TABLE bookings (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_name  TEXT NOT NULL,
+  start_time TEXT NOT NULL,   -- ISO 8601: "2026-03-16T08:00"
+  end_time   TEXT NOT NULL,
+  note       TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+## Changing the 10 Users
+
+Edit the `USERS` array in `server/routes/bookings.js`. The frontend fetches this list dynamically from `/api/users`.
+
+## Code Conventions
+
+- **No TypeScript** — plain JavaScript (ESM in client, CJS in server)
+- **No CSS framework** — inline styles throughout the React components
+- **No test framework configured** — add one if needed
+- Inline styles use plain JS objects; keep styling co-located with components
+- All date/times stored and compared as ISO 8601 strings
+
+## Notes for AI Assistants
+
+- `better-sqlite3` requires native bindings; always run `npm rebuild better-sqlite3` after `npm install` if bindings are missing
+- The Vite dev server proxies `/api` to port 3001 — no CORS issues in development
+- Conflict detection uses an exclusive interval check: `NOT (end_time <= :start_time OR start_time >= :end_time)`
+- Adding new users: update `USERS` in `server/routes/bookings.js` only — frontend is dynamic
+- Prefer editing existing files over creating new ones
 
 ## Git Workflow
 
@@ -23,62 +95,14 @@ Lek/
 | Branch | Purpose |
 |--------|---------|
 | `main` | Primary integration branch |
-| `master` | Legacy default branch (kept for compatibility) |
+| `master` | Legacy default branch |
 | `claude/*` | AI-generated feature/task branches |
 
-### Branch Naming Convention
-- Human features: `<username>/<short-description>`
-- AI-generated work: `claude/<description>-<session-id>`
-
 ### Commit Conventions
-- Write concise, imperative-mood commit messages (e.g. "Add authentication module", not "Added auth")
-- Reference issue numbers when applicable: `Fix login redirect (#42)`
-- Keep commits focused and atomic
+- Imperative mood: "Add X", "Fix Y", not "Added X"
+- Keep commits atomic and focused
 
 ### Pushing Changes
-Always push with upstream tracking:
 ```bash
 git push -u origin <branch-name>
 ```
-
-## Development Setup
-
-> No build system or runtime is configured yet. Update this section when the stack is chosen.
-
-Suggested first steps when starting development:
-1. Choose a language/framework
-2. Initialize a package manager or build tool
-3. Add a `.gitignore` appropriate for the chosen stack
-4. Define `lint`, `test`, and `build` scripts
-5. Update this file with actual commands
-
-## Code Conventions
-
-No code exists yet — conventions should be documented here once the stack is decided. Common things to capture:
-
-- **Formatting:** (e.g. Prettier, Black, gofmt)
-- **Linting:** (e.g. ESLint, Ruff, golangci-lint)
-- **Type system:** (e.g. TypeScript strict mode, mypy, typed Python)
-- **Testing approach:** unit tests, integration tests, test file naming
-
-## Testing
-
-No test framework is configured yet. Update this section once tests are added, including:
-- How to run the full test suite
-- How to run a single test file or test case
-- Where test fixtures and mocks live
-
-## Deployment / CI
-
-No CI/CD pipelines are configured. When added (e.g. GitHub Actions), document:
-- Trigger conditions (push, PR, tag)
-- Required secrets/environment variables
-- Deployment targets
-
-## Notes for AI Assistants
-
-- This is an **empty scaffold** — do not assume any framework, build tool, or file exists unless you have verified it.
-- Before suggesting code changes, confirm the target language and framework with the user.
-- When adding new files, also update this `CLAUDE.md` to reflect the new structure.
-- Prefer editing existing files over creating new ones unless a new file is clearly necessary.
-- Avoid over-engineering: keep initial implementations simple and focused on what is explicitly requested.
