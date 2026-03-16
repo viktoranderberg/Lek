@@ -366,19 +366,6 @@
       </div>
     </div>
 
-    <!-- Manual mileage -->
-    <div class="section-title">Mätarställning (alternativt manuell)</div>
-    <div class="row-2">
-      <div class="form-group">
-        <label>Start (mil)</label>
-        <input type="number" id="fMilStart" min="0" step="0.1" placeholder="t.ex. 12345.0" />
-      </div>
-      <div class="form-group">
-        <label>Slut (mil)</label>
-        <input type="number" id="fMilEnd"   min="0" step="0.1" placeholder="t.ex. 12367.5" />
-      </div>
-    </div>
-
     <hr class="section-divider" />
     <div class="section-title">Anteckningar</div>
     <div class="form-group">
@@ -431,13 +418,6 @@ function bookingsOnDate(dateStr, filter) {
   );
 }
 
-function drivenMil(b) {
-  if (b.milStart != null && b.milEnd != null) {
-    const d = parseFloat(b.milEnd) - parseFloat(b.milStart);
-    return d >= 0 ? d : null;
-  }
-  return null;
-}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 (function init() {
@@ -477,15 +457,10 @@ function renderSummary() {
   const relevant = filter ? bookings.filter(b => b.user === filter) : bookings;
   const t = today();
   const active   = bookings.filter(b => b.start <= t && b.end >= t).length;
-  const totalMil = relevant.reduce((acc,b) => {
-    const d = drivenMil(b);
-    return acc + (d != null ? d : 0);
-  }, 0);
 
   document.getElementById('summary').innerHTML = `
     <div class="summary-item"><div class="val">${bookings.length}</div><div class="lbl">Bokningar totalt</div></div>
     <div class="summary-item"><div class="val">${active}</div><div class="lbl">Aktiva idag</div></div>
-    <div class="summary-item"><div class="val">${totalMil.toFixed(1)}</div><div class="lbl">${filter ? filter+"'s" : 'Totala'} mil</div></div>
     <div class="summary-item"><div class="val">${USERS.length}</div><div class="lbl">Användare</div></div>
   `;
 }
@@ -558,10 +533,6 @@ function renderList() {
   }
 
   el.innerHTML = list.map(b => {
-    const km   = drivenMil(b);
-    const milTag = km != null
-      ? `<span class="tag tag-green">${km.toFixed(1)} mil körda</span>`
-      : (b.milStart != null ? `<span class="tag tag-green">Start: ${b.milStart} mil</span>` : '');
     const destTag = b.dest
       ? `<span class="tag tag-purple">📍 ${b.dest}</span>`
       : '';
@@ -571,7 +542,7 @@ function renderList() {
           <strong>${b.user}</strong>
           <span class="sub">
             <span class="tag tag-blue">${fmtSv(b.start)} ${b.startTime||''} → ${fmtSv(b.end)} ${b.endTime||''}</span>
-            ${milTag}${destTag}
+            ${destTag}
           </span>
           ${b.notes ? `<div class="note-text">📝 ${b.notes}</div>` : ''}
         </div>
@@ -593,8 +564,6 @@ function resetForm() {
   document.getElementById('fEnd').value             = '';
   document.getElementById('fStartTime').value       = '08:00';
   document.getElementById('fEndTime').value         = '17:00';
-  document.getElementById('fMilStart').value        = '';
-  document.getElementById('fMilEnd').value          = '';
   document.getElementById('fNotes').value           = '';
   document.getElementById('fDest').value            = '';
   document.getElementById('fOrigin').value          = '';
@@ -634,8 +603,6 @@ function openEdit(id) {
   document.getElementById('fEnd').value              = b.end;
   document.getElementById('fStartTime').value        = b.startTime || '08:00';
   document.getElementById('fEndTime').value          = b.endTime   || '17:00';
-  document.getElementById('fMilStart').value         = b.milStart  != null ? b.milStart : '';
-  document.getElementById('fMilEnd').value           = b.milEnd    != null ? b.milEnd   : '';
   document.getElementById('fNotes').value            = b.notes     || '';
   document.getElementById('fDest').value             = b.dest      || '';
   showOverlay();
@@ -667,17 +634,12 @@ function saveBooking() {
     return;
   }
 
-  const msV = document.getElementById('fMilStart').value;
-  const meV = document.getElementById('fMilEnd').value;
-
   const booking = {
     id:        editingId || uid(),
     user:      document.getElementById('fUser').value,
     start, end,
     startTime: document.getElementById('fStartTime').value,
     endTime:   document.getElementById('fEndTime').value,
-    milStart:  msV !== '' ? parseFloat(msV) : null,
-    milEnd:    meV !== '' ? parseFloat(meV) : null,
     notes:     document.getElementById('fNotes').value.trim(),
     dest:      document.getElementById('fDest').value.trim(),
   };
@@ -777,18 +739,10 @@ async function calcRoute() {
 
 function applyMil() {
   if (pendingMil == null) return;
-  const msEl = document.getElementById('fMilStart');
-  const meEl = document.getElementById('fMilEnd');
-  if (msEl.value !== '') {
-    meEl.value = (parseFloat(msEl.value) + pendingMil).toFixed(1);
-  } else {
-    // Just store in notes if no start reading
-    const notesEl = document.getElementById('fNotes');
-    const line     = `Körsträcka: ${pendingMil.toFixed(1)} mil (${(pendingMil*10).toFixed(1)} km)`;
-    if (!notesEl.value.includes(line)) {
-      notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + line;
-    }
-    alert(`Körde ${pendingMil.toFixed(1)} mil. Fyll i startmätarställning och klicka "Använd" igen för att räkna ut slutvärde automatiskt.`);
+  const notesEl = document.getElementById('fNotes');
+  const line     = `Körsträcka: ${pendingMil.toFixed(1)} mil (${(pendingMil*10).toFixed(1)} km)`;
+  if (!notesEl.value.includes(line)) {
+    notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + line;
   }
 }
 </script>
