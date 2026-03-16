@@ -232,6 +232,20 @@
 
     .error-msg { color: var(--danger); font-size: .8rem; display: none; margin-top: -.4rem; margin-bottom: .4rem; }
 
+    /* ─── Toast notifications ────────────────────────────────── */
+    #toastContainer { position:fixed; bottom:1.5rem; right:1.5rem; display:flex; flex-direction:column; gap:.6rem; z-index:200; }
+    .toast { background:#1e293b; color:#fff; border-radius:10px; padding:.75rem 1.1rem; font-size:.88rem;
+      display:flex; align-items:center; gap:.85rem; box-shadow:0 4px 16px rgba(0,0,0,.3);
+      animation:toastIn .2s ease; min-width:240px; max-width:360px; }
+    .toast.toast-success { border-left:4px solid var(--success); }
+    .toast.toast-danger  { border-left:4px solid var(--danger); }
+    .toast.toast-info    { border-left:4px solid var(--primary); }
+    .toast-msg { flex:1; }
+    .toast-undo { background:none; border:1px solid rgba(255,255,255,.4); color:#fff; border-radius:6px;
+      padding:.2rem .55rem; font-size:.8rem; cursor:pointer; font-weight:700; white-space:nowrap; }
+    .toast-undo:hover { background:rgba(255,255,255,.15); }
+    @keyframes toastIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
     @media (max-width: 600px) {
       .cal-cell { min-height: 60px; }
       .row-2 { grid-template-columns: 1fr; }
@@ -271,18 +285,32 @@
         <option value="">Alla användare</option>
       </select>
     </div>
+    <div class="field">
+      <label>Sök</label>
+      <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
+    </div>
     <div class="field" style="flex:0 0 auto">
       <label>&nbsp;</label>
       <button class="btn btn-primary" onclick="openNewBooking()">+ Ny bokning</button>
+      <button class="btn btn-sm" style="border:1px solid var(--border);margin-top:.35rem" onclick="exportCsv()">Exportera CSV</button>
     </div>
   </div>
 
   <!-- Calendar -->
   <div id="calView">
     <div class="cal-header">
-      <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
-      <h2 id="calTitle"></h2>
-      <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+      <div style="display:flex;align-items:center;gap:.35rem">
+        <button class="cal-nav" onclick="changeYear(-1)" title="Föregående år">&#171;</button>
+        <button class="cal-nav" onclick="changeMonth(-1)" title="Föregående månad">&#8249;</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:.75rem">
+        <h2 id="calTitle"></h2>
+        <button class="cal-nav" style="font-size:.75rem;padding:.25rem .6rem" onclick="goToday()">Idag</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:.35rem">
+        <button class="cal-nav" onclick="changeMonth(1)" title="Nästa månad">&#8250;</button>
+        <button class="cal-nav" onclick="changeYear(1)" title="Nästa år">&#187;</button>
+      </div>
     </div>
     <div class="cal-grid" id="calGrid"></div>
   </div>
@@ -412,6 +440,36 @@ function today()    { return toDateStr(new Date()); }
 
 function overlaps(s1,e1,s2,e2) { return s1 <= e2 && e1 >= s2; }
 
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showToast(msg, type = 'info', duration = 4000, undoCallback = null) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const msgEl = document.createElement('span');
+  msgEl.className = 'toast-msg'; msgEl.textContent = msg;
+  toast.appendChild(msgEl);
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return; dismissed = true;
+    toast.style.opacity = '0'; toast.style.transition = 'opacity .2s';
+    setTimeout(() => toast.remove(), 220);
+  };
+  if (undoCallback) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-undo'; btn.textContent = 'Ångra';
+    btn.onclick = () => { undoCallback(); dismiss(); };
+    toast.appendChild(btn);
+  }
+  container.appendChild(toast);
+  setTimeout(dismiss, duration);
+}
+
 function bookingsOnDate(dateStr, filter) {
   return bookings.filter(b =>
     b.start <= dateStr && b.end >= dateStr && (!filter || b.user === filter)
@@ -433,6 +491,12 @@ function bookingsOnDate(dateStr, filter) {
   });
 
   render();
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!document.getElementById('overlay').classList.contains('hidden')) closeModal();
+    }
+  });
 })();
 
 // ── View switching ────────────────────────────────────────────────────────────
@@ -473,6 +537,29 @@ function changeMonth(delta) {
   renderCalendar();
 }
 
+function changeYear(delta) { currentYear += delta; renderCalendar(); }
+
+function goToday() {
+  const now = new Date();
+  currentYear = now.getFullYear(); currentMonth = now.getMonth();
+  renderCalendar();
+}
+
+function exportCsv() {
+  const filter = document.getElementById('filterUser').value;
+  const rows = (filter ? bookings.filter(b => b.user === filter) : bookings)
+    .sort((a,b) => a.start.localeCompare(b.start));
+  const header = ['Användare','Startdatum','Starttid','Slutdatum','Sluttid','Destination','Anteckningar'];
+  const esc = v => `"${String(v||'').replace(/"/g,'""')}"`;
+  const csv = [header.join(','),
+    ...rows.map(b => [b.user,b.start,b.startTime,b.end,b.endTime,b.dest,b.notes].map(esc).join(','))
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `bokningar${filter ? '-'+filter : ''}.csv`;
+  a.click();
+}
+
 function renderCalendar() {
   const filter = document.getElementById('filterUser').value;
   document.getElementById('calTitle').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
@@ -508,8 +595,8 @@ function renderCalendar() {
     bList.forEach(b => {
       const chip = document.createElement('div');
       chip.className = 'booking-chip' + (bList.length > 1 ? ' multi' : '');
-      chip.textContent = b.user.split(' ').map(w=>w[0]).join('');
-      chip.title = b.user;
+      chip.textContent = b.user.split(' ').map(w=>w[0]).join('') + (b.dest ? ' 📍' : '');
+      chip.title = b.user + (b.dest ? ` — ${b.dest}` : '');
       chip.onclick = e => { e.stopPropagation(); openEdit(b.id); };
       cell.appendChild(chip);
     });
@@ -522,9 +609,17 @@ function renderCalendar() {
 // ── List view ─────────────────────────────────────────────────────────────────
 function renderList() {
   const filter = document.getElementById('filterUser').value;
-  const list   = [...bookings]
+  const q      = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  let list = [...bookings]
     .filter(b => !filter || b.user === filter)
     .sort((a,b) => a.start.localeCompare(b.start));
+  if (q) {
+    list = list.filter(b =>
+      (b.dest  || '').toLowerCase().includes(q) ||
+      (b.notes || '').toLowerCase().includes(q) ||
+      (b.user  || '').toLowerCase().includes(q)
+    );
+  }
   const el = document.getElementById('bookingList');
 
   if (!list.length) {
@@ -534,20 +629,20 @@ function renderList() {
 
   el.innerHTML = list.map(b => {
     const destTag = b.dest
-      ? `<span class="tag tag-purple">📍 ${b.dest}</span>`
+      ? `<span class="tag tag-purple">📍 ${escHtml(b.dest)}</span>`
       : '';
     return `
       <div class="booking-card">
         <div class="meta">
-          <strong>${b.user}</strong>
+          <strong>${escHtml(b.user)}</strong>
           <span class="sub">
-            <span class="tag tag-blue">${fmtSv(b.start)} ${b.startTime||''} → ${fmtSv(b.end)} ${b.endTime||''}</span>
+            <span class="tag tag-blue">${fmtSv(b.start)} ${escHtml(b.startTime||'')} → ${fmtSv(b.end)} ${escHtml(b.endTime||'')}</span>
             ${destTag}
           </span>
-          ${b.notes ? `<div class="note-text">📝 ${b.notes}</div>` : ''}
+          ${b.notes ? `<div class="note-text">📝 ${escHtml(b.notes)}</div>` : ''}
         </div>
         <div>
-          <button class="btn btn-sm" style="border:1px solid var(--border)" onclick="openEdit('${b.id}')">Redigera</button>
+          <button class="btn btn-sm" style="border:1px solid var(--border)" onclick="openEdit('${escHtml(b.id)}')">Redigera</button>
         </div>
       </div>`;
   }).join('');
@@ -624,13 +719,20 @@ function saveBooking() {
 
   const start = document.getElementById('fStart').value;
   const end   = document.getElementById('fEnd').value;
-  if (!start || !end) { alert('Ange start- och slutdatum.'); return; }
+  if (!start || !end) { showToast('Ange start- och slutdatum.', 'danger', 4000); return; }
+
+  const startTime = document.getElementById('fStartTime').value;
+  const endTime   = document.getElementById('fEndTime').value;
+  if (start === end && startTime && endTime && endTime <= startTime) {
+    showToast('Sluttiden måste vara efter starttiden när bokningen sker samma dag.', 'danger', 4000);
+    return;
+  }
 
   const conflict = bookings.find(b =>
     b.id !== editingId && overlaps(b.start, b.end, start, end)
   );
   if (conflict) {
-    alert(`Konflikt! ${conflict.user} har bokat bilen ${conflict.start} – ${conflict.end}.`);
+    showToast(`Konflikt! ${escHtml(conflict.user)} har bokat bilen ${conflict.start} – ${conflict.end}.`, 'danger', 5000);
     return;
   }
 
@@ -658,11 +760,18 @@ function saveBooking() {
 
 function deleteBooking() {
   if (!editingId) return;
-  if (!confirm('Ta bort denna bokning?')) return;
+  const removed = bookings.find(b => b.id === editingId);
+  if (!removed) return;
   bookings = bookings.filter(b => b.id !== editingId);
   persist();
   closeModal();
   render();
+  showToast(`Bokning för ${escHtml(removed.user)} borttagen.`, 'danger', 5000, () => {
+    bookings.push(removed);
+    persist();
+    render();
+    showToast('Bokning återställd.', 'success', 3000);
+  });
 }
 
 // ── Address / route ───────────────────────────────────────────────────────────
@@ -746,5 +855,6 @@ function applyMil() {
   }
 }
 </script>
+<div id="toastContainer"></div>
 </body>
 </html>
