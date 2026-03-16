@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tjänstebil – Bokningssystem</title>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -409,14 +412,27 @@
 </div>
 
 <script>
+// ── Firebase ───────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  // KLISTRA IN DIN FIREBASE-KONFIGURATION HÄR
+  // apiKey: "...",
+  // authDomain: "...",
+  // databaseURL: "https://DITT-PROJEKT.firebaseio.com",
+  // projectId: "...",
+  // storageBucket: "...",
+  // messagingSenderId: "...",
+  // appId: "..."
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database().ref('bookings');
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const USERS = ['Ninos','Viktor A','Viktor S','Tobias','Darko','Martina','Emil','Kevin','Hannes','Anna'];
 const DEFAULT_ORIGIN = 'Stjärntorget 1, Solna';
-const STORAGE_KEY    = 'tjänstebil_bookings_v2';
 const MONTH_NAMES    = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let bookings     = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let bookings     = []; // fylls av Firebase-lyssnaren i init()
 let currentView  = 'calendar';
 let currentYear  = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
@@ -424,7 +440,11 @@ let editingId    = null;
 let pendingMil   = null; // km from last route calculation
 
 // ── Persistence ───────────────────────────────────────────────────────────────
-function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings)); }
+function persist() {
+  const obj = {};
+  bookings.forEach(b => { obj[b.id] = b; });
+  db.set(obj);
+}
 function uid()     { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -490,7 +510,11 @@ function bookingsOnDate(dateStr, filter) {
     });
   });
 
-  render();
+  db.on('value', snapshot => {
+    const data = snapshot.val();
+    bookings = data ? Object.values(data) : [];
+    render();
+  });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
