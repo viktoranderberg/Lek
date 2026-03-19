@@ -11,15 +11,15 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --primary:      #2563eb;
-      --primary-dark: #1d4ed8;
+      --primary:      #990AE3;
+      --primary-dark: #7A09B5;
       --danger:       #dc2626;
       --success:      #16a34a;
-      --bg:           #f1f5f9;
+      --bg:           #f8f4fc;
       --card:         #ffffff;
-      --border:       #e2e8f0;
-      --text:         #1e293b;
-      --muted:        #64748b;
+      --border:       #e8d5f5;
+      --text:         #1F012F;
+      --muted:        #6b5a7a;
     }
 
     body {
@@ -129,7 +129,7 @@
     }
     .cal-cell:hover { box-shadow: 0 0 0 2px var(--primary); }
     .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
-    .cal-cell.today { background: #eff6ff; border-color: var(--primary); }
+    .cal-cell.today { background: #F3E5FF; border-color: var(--primary); }
     .cal-cell.past  { opacity: .45; }
     .day-num { font-size: .75rem; font-weight: 700; color: var(--muted); margin-bottom: .25rem; }
     .cal-cell.today .day-num { color: var(--primary); }
@@ -142,7 +142,7 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       cursor: pointer;
     }
-    .booking-chip.multi { background: #7c3aed; }
+    .booking-chip.multi { background: #990AE3; }
     .booking-chip:hover { filter: brightness(1.15); }
 
     /* ─── List view ──────────────────────────────────── */
@@ -155,13 +155,13 @@
     .booking-card .meta { flex: 1; }
     .booking-card .meta strong { font-size: .95rem; }
     .booking-card .meta .sub  { font-size: .82rem; color: var(--muted); display: block; margin-top: .2rem; }
-    .note-text { font-size: .8rem; color: #475569; margin-top: .3rem; font-style: italic; }
+    .note-text { font-size: .8rem; color: #6b5a7a; margin-top: .3rem; font-style: italic; }
 
     .tag {
       display: inline-block; padding: .15rem .5rem; border-radius: 20px;
       font-size: .7rem; font-weight: 700; margin-right: .3rem; margin-top: .2rem;
     }
-    .tag-blue  { background: #dbeafe; color: #1d4ed8; }
+    .tag-blue  { background: #ede9fe; color: #6d28d9; }
     .tag-green { background: #dcfce7; color: #15803d; }
     .tag-purple{ background: #ede9fe; color: #6d28d9; }
 
@@ -221,7 +221,7 @@
 
     .calc-result {
       display: flex; align-items: center; gap: .75rem;
-      background: #eff6ff; border: 1px solid #bfdbfe;
+      background: #F3E5FF; border: 1px solid #E4B8F8;
       border-radius: 8px; padding: .5rem .75rem; margin-top: .5rem;
       font-size: .85rem; display: none;
     }
@@ -237,7 +237,7 @@
 
     /* ─── Toast notifications ────────────────────────────────── */
     #toastContainer { position:fixed; bottom:1.5rem; right:1.5rem; display:flex; flex-direction:column; gap:.6rem; z-index:200; }
-    .toast { background:#1e293b; color:#fff; border-radius:10px; padding:.75rem 1.1rem; font-size:.88rem;
+    .toast { background:#1F012F; color:#fff; border-radius:10px; padding:.75rem 1.1rem; font-size:.88rem;
       display:flex; align-items:center; gap:.85rem; box-shadow:0 4px 16px rgba(0,0,0,.3);
       animation:toastIn .2s ease; min-width:240px; max-width:360px; }
     .toast.toast-success { border-left:4px solid var(--success); }
