@@ -249,30 +249,6 @@
     .toast-undo:hover { background:rgba(255,255,255,.15); }
     @keyframes toastIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
-    /* ─── Weather + Quote panel ──────────────────────── */
-    .cal-info-panel {
-      display: flex; flex-wrap: wrap; gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    .weather-widget {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: .85rem 1.25rem;
-      display: flex; align-items: center; gap: .85rem;
-      flex: 0 0 auto;
-    }
-    .weather-icon { font-size: 2rem; line-height: 1; }
-    .weather-info .temp { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
-    .weather-info .desc { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
-    .weather-info .loc  { font-size: .72rem; color: var(--muted); opacity: .75; margin-top: .1rem; }
-    .quote-widget {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: .85rem 1.25rem;
-      flex: 1 1 260px; display: flex; align-items: center; gap: .75rem;
-    }
-    .quote-icon { font-size: 1.5rem; opacity: .35; flex-shrink: 0; }
-    .quote-text { font-size: .88rem; color: var(--text); font-style: italic; line-height: 1.45; }
-    .quote-author { font-size: .75rem; color: var(--muted); margin-top: .3rem; font-style: normal; font-weight: 600; }
-
     @media (max-width: 600px) {
       .cal-cell { min-height: 60px; }
       .row-2 { grid-template-columns: 1fr; }
@@ -312,7 +288,7 @@
         <option value="">Alla användare</option>
       </select>
     </div>
-    <div class="field" id="searchField">
+    <div class="field">
       <label>Sök</label>
       <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
     </div>
@@ -325,23 +301,6 @@
 
   <!-- Calendar -->
   <div id="calView">
-    <div class="cal-info-panel" id="calInfoPanel">
-      <div class="weather-widget" id="weatherWidget">
-        <div class="weather-icon" id="weatherIcon">⏳</div>
-        <div class="weather-info">
-          <div class="temp" id="weatherTemp">–</div>
-          <div class="desc" id="weatherDesc">Hämtar väder…</div>
-          <div class="loc"  id="weatherLoc"></div>
-        </div>
-      </div>
-      <div class="quote-widget">
-        <div class="quote-icon">❝</div>
-        <div>
-          <div class="quote-text" id="quoteText"></div>
-          <div class="quote-author" id="quoteAuthor"></div>
-        </div>
-      </div>
-    </div>
     <div class="cal-header">
       <div style="display:flex;align-items:center;gap:.35rem">
         <button class="cal-nav" onclick="changeYear(-1)" title="Föregående år">&#171;</button>
@@ -567,9 +526,8 @@ function bookingsOnDate(dateStr, filter) {
 // ── View switching ────────────────────────────────────────────────────────────
 function setView(v) {
   currentView = v;
-  document.getElementById('calView').style.display      = v === 'calendar' ? '' : 'none';
-  document.getElementById('listView').style.display     = v === 'list'     ? '' : 'none';
-  document.getElementById('searchField').style.display  = v === 'list'     ? '' : 'none';
+  document.getElementById('calView').style.display  = v === 'calendar' ? '' : 'none';
+  document.getElementById('listView').style.display = v === 'list'     ? '' : 'none';
   document.getElementById('btnCalendar').classList.toggle('active', v === 'calendar');
   document.getElementById('btnList').classList.toggle('active', v === 'list');
   render();
@@ -920,100 +878,6 @@ function applyMil() {
     notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + line;
   }
 }
-
-// ── Weather ────────────────────────────────────────────────────────────────────
-const WMO_ICONS = {
-  0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️',
-  45:'🌫️', 48:'🌫️',
-  51:'🌦️', 53:'🌦️', 55:'🌧️',
-  61:'🌧️', 63:'🌧️', 65:'🌧️',
-  71:'🌨️', 73:'🌨️', 75:'❄️',
-  77:'🌨️',
-  80:'🌦️', 81:'🌧️', 82:'⛈️',
-  85:'🌨️', 86:'🌨️',
-  95:'⛈️', 96:'⛈️', 99:'⛈️'
-};
-const WMO_DESC = {
-  0:'Klart', 1:'Mestadels klart', 2:'Delvis molnigt', 3:'Mulet',
-  45:'Dimma', 48:'Rimfrostdimma',
-  51:'Lätt duggregn', 53:'Duggregn', 55:'Kraftigt duggregn',
-  61:'Lätt regn', 63:'Regn', 65:'Kraftigt regn',
-  71:'Lätt snö', 73:'Snö', 75:'Kraftigt snöfall',
-  77:'Snöbyar',
-  80:'Lätta regnskurar', 81:'Regnskurar', 82:'Kraftiga regnskurar',
-  85:'Snöbyar', 86:'Kraftiga snöbyar',
-  95:'Åska', 96:'Åska med hagel', 99:'Kraftig åska med hagel'
-};
-
-async function fetchWeather() {
-  if (!navigator.geolocation) {
-    document.getElementById('weatherDesc').textContent = 'Geolokalisering ej tillgänglig';
-    document.getElementById('weatherIcon').textContent = '📍';
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(async pos => {
-    const { latitude: lat, longitude: lon } = pos.coords;
-    try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-                  `&current=temperature_2m,weathercode,windspeed_10m&wind_speed_unit=ms&timezone=auto`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      const c    = data.current;
-      const code = c.weathercode;
-      document.getElementById('weatherIcon').textContent = WMO_ICONS[code] ?? '🌡️';
-      document.getElementById('weatherTemp').textContent = `${Math.round(c.temperature_2m)}°C`;
-      document.getElementById('weatherDesc').textContent = WMO_DESC[code] ?? `Kod ${code}`;
-
-      // reverse geocode city name
-      const geo = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-        { headers: { 'Accept-Language': 'sv' } }
-      );
-      const gd = await geo.json();
-      const city = gd.address?.city || gd.address?.town || gd.address?.village || '';
-      document.getElementById('weatherLoc').textContent = city;
-    } catch {
-      document.getElementById('weatherDesc').textContent = 'Väder ej tillgängligt';
-      document.getElementById('weatherIcon').textContent = '🌡️';
-    }
-  }, () => {
-    document.getElementById('weatherDesc').textContent = 'Plats ej tillåten';
-    document.getElementById('weatherIcon').textContent = '📍';
-  });
-}
-
-// ── Motivational quotes ────────────────────────────────────────────────────────
-const QUOTES = [
-  { text: 'Det är inte vad vi gör ibland som formar oss, utan vad vi gör konsekvent.', author: 'Tony Robbins' },
-  { text: 'Framgång är summan av små ansträngningar som upprepas dag efter dag.', author: 'Robert Collier' },
-  { text: 'Drömmar utan handlingar är bara drömmar. Sätt igång!', author: '' },
-  { text: 'Du behöver inte se hela trappan. Ta bara det första steget.', author: 'Martin Luther King Jr.' },
-  { text: 'Den enda omöjliga resan är den du aldrig börjar.', author: 'Tony Robbins' },
-  { text: 'Varje dag är en ny chans att förändra ditt liv.', author: '' },
-  { text: 'Hårt arbete slår talang när talangen inte arbetar hårt.', author: 'Tim Notke' },
-  { text: 'Det spelar ingen roll hur långsamt du går, så länge du inte stannar.', author: 'Konfucius' },
-  { text: 'Tro på dig själv och allt är möjligt.', author: '' },
-  { text: 'Gör det du kan, med det du har, där du är.', author: 'Theodore Roosevelt' },
-  { text: 'En liten positiv tanke på morgonen kan förändra hela din dag.', author: '' },
-  { text: 'Möjligheter uppstår inte av sig själva – du skapar dem.', author: 'Chris Grosser' },
-  { text: 'Det enda sättet att göra ett bra jobb är att älska det du gör.', author: 'Steve Jobs' },
-  { text: 'Varje expert var en gång nybörjare.', author: 'Helen Hayes' },
-  { text: 'Välj ett jobb du älskar, och du behöver aldrig jobba en enda dag i ditt liv.', author: 'Konfucius' }
-];
-
-function renderQuote() {
-  const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-  document.getElementById('quoteText').textContent   = `"${q.text}"`;
-  document.getElementById('quoteAuthor').textContent = q.author ? `— ${q.author}` : '';
-}
-
-// initialise weather + quote once on load
-(function initCalInfo() {
-  renderQuote();
-  fetchWeather();
-  // also hide search field initially since default view is calendar
-  document.getElementById('searchField').style.display = 'none';
-})();
 </script>
 <div id="toastContainer"></div>
 </body>
