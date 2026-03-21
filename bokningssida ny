@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tjänstebil – Bokningssystem</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:      #2563eb;
+      --primary-dark: #1d4ed8;
+      --danger:       #dc2626;
+      --success:      #16a34a;
+      --bg:           #f1f5f9;
+      --card:         #ffffff;
+      --border:       #e2e8f0;
+      --text:         #1e293b;
+      --muted:        #64748b;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─────────────────────────────────────── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    header h1 { font-size: 1.35rem; font-weight: 700; }
+    header p  { font-size: .82rem; opacity: .85; }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* ─── Summary bar ────────────────────────────────── */
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-item .val { font-size: 1.4rem; font-weight: 800; color: var(--primary); }
+    .summary-item .lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ─── Controls ───────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .field { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 160px; }
+    .field label {
+      font-size: .72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .field select, .field input {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: .5rem .75rem; font-size: .9rem;
+      outline: none; transition: border-color .2s;
+    }
+    .field select:focus, .field input:focus { border-color: var(--primary); }
+
+    .view-toggle { display: flex; gap: .5rem; }
+    .view-toggle button {
+      border: 1px solid var(--border); background: var(--card);
+      border-radius: 8px; padding: .4rem .9rem;
+      cursor: pointer; font-size: .85rem; font-weight: 600;
+      transition: background .15s;
+    }
+    .view-toggle button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* ─── Buttons ────────────────────────────────────── */
+    .btn {
+      padding: .55rem 1.25rem; border-radius: 8px; border: none;
+      font-size: .9rem; font-weight: 600; cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-sm { padding: .3rem .75rem; font-size: .8rem; }
+
+    /* ─── Calendar ───────────────────────────────────── */
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .cal-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .cal-nav {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: .3rem .8rem; cursor: pointer; font-size: 1.1rem;
+    }
+    .cal-nav:hover { background: var(--bg); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+    .cal-day-name {
+      text-align: center; font-size: .7rem; font-weight: 700;
+      color: var(--muted); padding: .4rem 0; text-transform: uppercase;
+    }
+    .cal-cell {
+      border: 1px solid var(--border); border-radius: 10px;
+      min-height: 90px; padding: .4rem; background: var(--card);
+      cursor: pointer; transition: box-shadow .15s; position: relative;
+      overflow: hidden;
+    }
+    .cal-cell:hover { box-shadow: 0 0 0 2px var(--primary); }
+    .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-cell.today { background: #eff6ff; border-color: var(--primary); }
+    .cal-cell.past  { opacity: .45; cursor: default; pointer-events: none; }
+    .day-num { font-size: .75rem; font-weight: 700; color: var(--muted); margin-bottom: .25rem; }
+    .cal-cell.today .day-num { color: var(--primary); }
+
+    .booking-chip {
+      display: flex; align-items: center;
+      background: var(--primary); color: #fff;
+      border-radius: 5px; padding: .12rem .35rem;
+      font-size: .68rem; font-weight: 700; margin-bottom: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .booking-chip.multi { background: #7c3aed; }
+    .booking-chip:hover { filter: brightness(1.15); }
+
+    /* ─── List view ──────────────────────────────────── */
+    .booking-list { display: flex; flex-direction: column; gap: .75rem; }
+    .booking-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.25rem;
+      display: flex; align-items: flex-start; gap: 1rem;
+    }
+    .booking-card .meta { flex: 1; }
+    .booking-card .meta strong { font-size: .95rem; }
+    .booking-card .meta .sub  { font-size: .82rem; color: var(--muted); display: block; margin-top: .2rem; }
+    .note-text { font-size: .8rem; color: #475569; margin-top: .3rem; font-style: italic; }
+
+    .tag {
+      display: inline-block; padding: .15rem .5rem; border-radius: 20px;
+      font-size: .7rem; font-weight: 700; margin-right: .3rem; margin-top: .2rem;
+    }
+    .tag-blue  { background: #dbeafe; color: #1d4ed8; }
+    .tag-green { background: #dcfce7; color: #15803d; }
+    .tag-purple{ background: #ede9fe; color: #6d28d9; }
+
+    /* ─── Modal ──────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: var(--card); border-radius: 16px; padding: 2rem;
+      width: 100%; max-width: 560px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; }
+
+    .form-group { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .85rem; }
+    .form-group label { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: .5rem .75rem; font-size: .9rem; outline: none;
+      font-family: inherit; transition: border-color .2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--primary); }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+
+    .section-divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 1rem 0 .85rem;
+    }
+    .section-title {
+      font-size: .72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: .75rem;
+    }
+
+    /* Address / route */
+    .addr-block {
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 10px; padding: .85rem 1rem; margin-bottom: .85rem;
+    }
+    .addr-block .addr-title {
+      font-size: .72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em; margin-bottom: .6rem;
+    }
+
+    .switch-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+    .switch-row label { font-size: .82rem; cursor: pointer; }
+    input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
+
+    .calc-result {
+      display: flex; align-items: center; gap: .75rem;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 8px; padding: .5rem .75rem; margin-top: .5rem;
+      font-size: .85rem; display: none;
+    }
+    .calc-result.visible { display: flex; }
+    .calc-result strong { color: var(--primary); }
+
+    .addr-status { font-size: .78rem; color: var(--muted); margin-top: .4rem; min-height: 1.2em; }
+    .addr-status.error { color: var(--danger); }
+
+    .modal-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+    .error-msg { color: var(--danger); font-size: .8rem; display: none; margin-top: -.4rem; margin-bottom: .4rem; }
+
+    @media (max-width: 600px) {
+      .cal-cell { min-height: 60px; }
+      .row-2 { grid-template-columns: 1fr; }
+      .modal { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1" y="3" width="15" height="13" rx="2"/>
+    <path d="M16 8h4l3 5v3h-7V8z"/>
+    <circle cx="5.5" cy="18.5" r="2.5"/>
+    <circle cx="18.5" cy="18.5" r="2.5"/>
+  </svg>
+  <div>
+    <h1>Tjänstebil – Bokningssystem</h1>
+    <p id="headerSub">Laddar…</p>
+  </div>
+</header>
+
+<main>
+  <div class="summary" id="summary"></div>
+
+  <div class="controls">
+    <div class="field">
+      <label>Vy</label>
+      <div class="view-toggle">
+        <button id="btnCalendar" class="active" onclick="setView('calendar')">Kalender</button>
+        <button id="btnList"     onclick="setView('list')">Lista</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Filtrera användare</label>
+      <select id="filterUser" onchange="render()">
+        <option value="">Alla användare</option>
+      </select>
+    </div>
+    <div class="field" style="flex:0 0 auto">
+      <label>&nbsp;</label>
+      <button class="btn btn-primary" onclick="openNewBooking()">+ Ny bokning</button>
+    </div>
+  </div>
+
+  <!-- Calendar -->
+  <div id="calView">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+      <h2 id="calTitle"></h2>
+      <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- List -->
+  <div id="listView" style="display:none">
+    <div class="booking-list" id="bookingList"></div>
+  </div>
+</main>
+
+<!-- ─── Modal ──────────────────────────────────────────────── -->
+<div class="overlay hidden" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modalTitle">Ny bokning</h3>
+
+    <div class="form-group">
+      <label>Användare</label>
+      <select id="fUser"></select>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label>Startdatum</label>
+        <input type="date" id="fStart" onchange="validateDates()" />
+      </div>
+      <div class="form-group">
+        <label>Slutdatum</label>
+        <input type="date" id="fEnd" onchange="validateDates()" />
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label>Starttid</label>
+        <input type="time" id="fStartTime" value="08:00" />
+      </div>
+      <div class="form-group">
+        <label>Sluttid</label>
+        <input type="time" id="fEndTime" value="17:00" />
+      </div>
+    </div>
+
+    <div id="dateError" class="error-msg">Slutdatum måste vara samma eller efter startdatum.</div>
+
+    <hr class="section-divider" />
+    <div class="section-title">Rutt &amp; Milantal</div>
+
+    <!-- Address block -->
+    <div class="addr-block">
+      <div class="addr-title">Utgångspunkt</div>
+
+      <div class="switch-row">
+        <input type="checkbox" id="altOrigin" onchange="toggleAltOrigin()" />
+        <label for="altOrigin">Annan utgångspunkt (standard: Stjärntorget 1, Solna)</label>
+      </div>
+
+      <div id="originField" style="display:none;margin-bottom:0" class="form-group">
+        <input type="text" id="fOrigin" placeholder="t.ex. Drottninggatan 1, Stockholm" />
+      </div>
+
+      <div class="form-group" style="margin-bottom:.5rem;margin-top:.5rem">
+        <label>Destination</label>
+        <input type="text" id="fDest" placeholder="t.ex. Arlanda flygplats" oninput="clearRouteResult()" />
+      </div>
+
+      <div class="switch-row">
+        <input type="checkbox" id="fRoundTrip" checked />
+        <label for="fRoundTrip">Tur och retur (×2)</label>
+      </div>
+
+      <button class="btn btn-primary btn-sm" onclick="calcRoute()" id="btnCalcRoute">
+        Beräkna avstånd
+      </button>
+
+      <div class="addr-status" id="addrStatus"></div>
+
+      <div class="calc-result" id="calcResult">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="calcResultText"></span>
+        <button class="btn btn-sm btn-primary" onclick="applyMil()" style="margin-left:auto">Använd</button>
+      </div>
+    </div>
+
+    <!-- Manual mileage -->
+    <div class="section-title">Mätarställning (alternativt manuell)</div>
+    <div class="row-2">
+      <div class="form-group">
+        <label>Start (mil)</label>
+        <input type="number" id="fMilStart" min="0" step="0.1" placeholder="t.ex. 12345.0" />
+      </div>
+      <div class="form-group">
+        <label>Slut (mil)</label>
+        <input type="number" id="fMilEnd"   min="0" step="0.1" placeholder="t.ex. 12367.5" />
+      </div>
+    </div>
+
+    <hr class="section-divider" />
+    <div class="section-title">Anteckningar</div>
+    <div class="form-group">
+      <textarea id="fNotes" placeholder="Beskriv ärende, kund, destination m.m."></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" style="border:1px solid var(--border)" onclick="closeModal()">Avbryt</button>
+      <button class="btn btn-danger btn-sm" id="btnDelete" style="display:none" onclick="deleteBooking()">Ta bort</button>
+      <button class="btn btn-primary" onclick="saveBooking()">Spara</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const USERS = ['Ninos','Viktor A','Viktor S','Tobias','Darko','Martina','Emil','Kevin','Hannes','Anna'];
+const DEFAULT_ORIGIN = 'Stjärntorget 1, Solna';
+const STORAGE_KEY    = 'tjänstebil_bookings_v2';
+const MONTH_NAMES    = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let bookings     = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let currentView  = 'calendar';
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let editingId    = null;
+let pendingMil   = null; // km from last route calculation
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings)); }
+function uid()     { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function escapeHtml(str) {
+  if (str == null || str === '') return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function pad(n)      { return String(n).padStart(2,'0'); }
+function toDateStr(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDStr(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtSv(s)   {
+  if (!s) return '';
+  const d = parseDStr(s);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].toLowerCase()} ${d.getFullYear()}`;
+}
+function today()    { return toDateStr(new Date()); }
+
+function overlaps(s1,e1,s2,e2) { return s1 <= e2 && e1 >= s2; }
+
+function bookingsOnDate(dateStr, filter) {
+  return bookings.filter(b =>
+    b.start <= dateStr && b.end >= dateStr && (!filter || b.user === filter)
+  );
+}
+
+function drivenMil(b) {
+  if (b.milStart != null && b.milEnd != null) {
+    const d = parseFloat(b.milEnd) - parseFloat(b.milStart);
+    return d >= 0 ? d : null;
+  }
+  return null;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  document.getElementById('headerSub').textContent = 'Bil: Tjänstebil  |  Max 10 användare';
+
+  ['filterUser','fUser'].forEach(id => {
+    const sel = document.getElementById(id);
+    USERS.forEach(u => {
+      const o = document.createElement('option');
+      o.value = u; o.textContent = u;
+      sel.appendChild(o);
+    });
+  });
+
+  render();
+})();
+
+// ── View switching ────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  document.getElementById('calView').style.display  = v === 'calendar' ? '' : 'none';
+  document.getElementById('listView').style.display = v === 'list'     ? '' : 'none';
+  document.getElementById('btnCalendar').classList.toggle('active', v === 'calendar');
+  document.getElementById('btnList').classList.toggle('active', v === 'list');
+  render();
+}
+
+function render() {
+  renderSummary();
+  if (currentView === 'calendar') renderCalendar();
+  else renderList();
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+function renderSummary() {
+  const filter   = document.getElementById('filterUser').value;
+  const relevant = filter ? bookings.filter(b => b.user === filter) : bookings;
+  const t = today();
+  const active   = relevant.filter(b => b.start <= t && b.end >= t).length;
+  const totalMil = relevant.reduce((acc,b) => {
+    const d = drivenMil(b);
+    return acc + (d != null ? d : 0);
+  }, 0);
+
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-item"><div class="val">${relevant.length}</div><div class="lbl">Bokningar totalt</div></div>
+    <div class="summary-item"><div class="val">${active}</div><div class="lbl">Aktiva idag</div></div>
+    <div class="summary-item"><div class="val">${totalMil.toFixed(1)}</div><div class="lbl">${filter ? filter+"'s" : 'Totala'} mil</div></div>
+    <div class="summary-item"><div class="val">${USERS.length}</div><div class="lbl">Användare</div></div>
+  `;
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth <  0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const filter = document.getElementById('filterUser').value;
+  document.getElementById('calTitle').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+  const grid  = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  ['Mån','Tis','Ons','Tor','Fre','Lör','Sön'].forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-name'; el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay  = new Date(currentYear, currentMonth, 1);
+  const startPad  = (firstDay.getDay() + 6) % 7;
+  const daysInMon = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const tod       = today();
+
+  for (let i = 0; i < startPad; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-cell empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMon; d++) {
+    const ds    = `${currentYear}-${pad(currentMonth+1)}-${pad(d)}`;
+    const bList = bookingsOnDate(ds, filter);
+    const cell  = document.createElement('div');
+    const isPast= ds < tod;
+
+    cell.className = 'cal-cell' + (ds === tod ? ' today' : '') + (isPast ? ' past' : '');
+    cell.innerHTML  = `<div class="day-num">${d}</div>`;
+
+    bList.forEach(b => {
+      const chip = document.createElement('div');
+      chip.className = 'booking-chip' + (bList.length > 1 ? ' multi' : '');
+      chip.textContent = b.user.split(' ').map(w=>w[0]).join('');
+      chip.title = b.user;
+      chip.onclick = e => { e.stopPropagation(); openEdit(b.id); };
+      cell.appendChild(chip);
+    });
+
+    if (!isPast) cell.onclick = () => openNewBookingDate(ds);
+    grid.appendChild(cell);
+  }
+}
+
+// ── List view ─────────────────────────────────────────────────────────────────
+function renderList() {
+  const filter = document.getElementById('filterUser').value;
+  const list   = [...bookings]
+    .filter(b => !filter || b.user === filter)
+    .sort((a,b) => a.start.localeCompare(b.start));
+  const el = document.getElementById('bookingList');
+
+  if (!list.length) {
+    el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem 0">Inga bokningar hittades.</p>';
+    return;
+  }
+
+  el.innerHTML = list.map(b => {
+    const km   = drivenMil(b);
+    const milTag = km != null
+      ? `<span class="tag tag-green">${km.toFixed(1)} mil körda</span>`
+      : (b.milStart != null ? `<span class="tag tag-green">Start: ${escapeHtml(String(b.milStart))} mil</span>` : '');
+    const destTag = b.dest
+      ? `<span class="tag tag-purple">📍 ${escapeHtml(b.dest)}</span>`
+      : '';
+    return `
+      <div class="booking-card">
+        <div class="meta">
+          <strong>${escapeHtml(b.user)}</strong>
+          <span class="sub">
+            <span class="tag tag-blue">${escapeHtml(fmtSv(b.start))} ${escapeHtml(b.startTime||'')} → ${escapeHtml(fmtSv(b.end))} ${escapeHtml(b.endTime||'')}</span>
+            ${milTag}${destTag}
+          </span>
+          ${b.notes ? `<div class="note-text">📝 ${escapeHtml(b.notes)}</div>` : ''}
+        </div>
+        <div>
+          <button class="btn btn-sm" style="border:1px solid var(--border)" data-id="${escapeHtml(String(b.id))}" onclick="openEdit(this.dataset.id)">Redigera</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Modal open/close ──────────────────────────────────────────────────────────
+function showOverlay() { document.getElementById('overlay').classList.remove('hidden'); }
+function closeModal()  { document.getElementById('overlay').classList.add('hidden'); }
+function handleOverlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
+
+function resetForm() {
+  document.getElementById('fUser').selectedIndex    = 0;
+  document.getElementById('fStart').value           = '';
+  document.getElementById('fEnd').value             = '';
+  document.getElementById('fStartTime').value       = '08:00';
+  document.getElementById('fEndTime').value         = '17:00';
+  document.getElementById('fMilStart').value        = '';
+  document.getElementById('fMilEnd').value          = '';
+  document.getElementById('fNotes').value           = '';
+  document.getElementById('fDest').value            = '';
+  document.getElementById('fOrigin').value          = '';
+  document.getElementById('altOrigin').checked      = false;
+  document.getElementById('fRoundTrip').checked     = true;
+  document.getElementById('originField').style.display = 'none';
+  document.getElementById('dateError').style.display   = 'none';
+  clearRouteResult();
+  pendingMil = null;
+}
+
+function openNewBooking() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent     = 'Ny bokning';
+  document.getElementById('btnDelete').style.display    = 'none';
+  resetForm();
+  document.getElementById('fStart').value = today();
+  document.getElementById('fEnd').value   = today();
+  showOverlay();
+}
+
+function openNewBookingDate(dateStr) {
+  openNewBooking();
+  document.getElementById('fStart').value = dateStr;
+  document.getElementById('fEnd').value   = dateStr;
+}
+
+function openEdit(id) {
+  const b = bookings.find(x => x.id === id);
+  if (!b) return;
+  editingId = id;
+  resetForm();
+  document.getElementById('modalTitle').textContent  = 'Redigera bokning';
+  document.getElementById('btnDelete').style.display = '';
+  document.getElementById('fUser').value             = b.user;
+  document.getElementById('fStart').value            = b.start;
+  document.getElementById('fEnd').value              = b.end;
+  document.getElementById('fStartTime').value        = b.startTime || '08:00';
+  document.getElementById('fEndTime').value          = b.endTime   || '17:00';
+  document.getElementById('fMilStart').value         = b.milStart  != null ? b.milStart : '';
+  document.getElementById('fMilEnd').value           = b.milEnd    != null ? b.milEnd   : '';
+  document.getElementById('fNotes').value            = b.notes     || '';
+  document.getElementById('fDest').value             = b.dest      || '';
+  showOverlay();
+}
+
+// ── Validation ────────────────────────────────────────────────────────────────
+function validateDates() {
+  const s   = document.getElementById('fStart').value;
+  const e   = document.getElementById('fEnd').value;
+  const err = document.getElementById('dateError');
+  if (s && e && e < s) { err.style.display = ''; return false; }
+  err.style.display = 'none';
+  return true;
+}
+
+// ── Save / delete ─────────────────────────────────────────────────────────────
+function saveBooking() {
+  if (!validateDates()) return;
+
+  const start = document.getElementById('fStart').value;
+  const end   = document.getElementById('fEnd').value;
+  if (!start || !end) { alert('Ange start- och slutdatum.'); return; }
+
+  const conflict = bookings.find(b =>
+    b.id !== editingId && overlaps(b.start, b.end, start, end)
+  );
+  if (conflict) {
+    alert(`Konflikt! ${conflict.user} har bokat bilen ${conflict.start} – ${conflict.end}.`);
+    return;
+  }
+
+  const msV = document.getElementById('fMilStart').value;
+  const meV = document.getElementById('fMilEnd').value;
+
+  const booking = {
+    id:        editingId || uid(),
+    user:      document.getElementById('fUser').value,
+    start, end,
+    startTime: document.getElementById('fStartTime').value,
+    endTime:   document.getElementById('fEndTime').value,
+    milStart:  msV !== '' ? parseFloat(msV) : null,
+    milEnd:    meV !== '' ? parseFloat(meV) : null,
+    notes:     document.getElementById('fNotes').value.trim(),
+    dest:      document.getElementById('fDest').value.trim(),
+  };
+
+  if (editingId) {
+    const idx = bookings.findIndex(b => b.id === editingId);
+    bookings[idx] = booking;
+  } else {
+    bookings.push(booking);
+  }
+
+  persist();
+  closeModal();
+  render();
+}
+
+function deleteBooking() {
+  if (!editingId) return;
+  if (!confirm('Ta bort denna bokning?')) return;
+  bookings = bookings.filter(b => b.id !== editingId);
+  persist();
+  closeModal();
+  render();
+}
+
+// ── Address / route ───────────────────────────────────────────────────────────
+function toggleAltOrigin() {
+  const checked = document.getElementById('altOrigin').checked;
+  document.getElementById('originField').style.display = checked ? '' : 'none';
+  clearRouteResult();
+}
+
+function clearRouteResult() {
+  document.getElementById('calcResult').classList.remove('visible');
+  document.getElementById('addrStatus').textContent = '';
+  document.getElementById('addrStatus').className   = 'addr-status';
+  pendingMil = null;
+}
+
+function setStatus(msg, isError) {
+  const el = document.getElementById('addrStatus');
+  el.textContent = msg;
+  el.className   = 'addr-status' + (isError ? ' error' : '');
+}
+
+async function geocode(address) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=se`;
+  const res  = await fetch(url, { headers: { 'Accept-Language': 'sv' } });
+  const data = await res.json();
+  if (!data.length) throw new Error(`Hittade inte: "${address}"`);
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+}
+
+async function routeDistance(fromLat, fromLon, toLat, toLon) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=false`;
+  const res  = await fetch(url);
+  const data = await res.json();
+  if (data.code !== 'Ok') throw new Error('Kunde inte beräkna rutt.');
+  return data.routes[0].distance; // meters
+}
+
+async function calcRoute() {
+  const dest = document.getElementById('fDest').value.trim();
+  if (!dest) { setStatus('Ange en destination.', true); return; }
+
+  const useAlt  = document.getElementById('altOrigin').checked;
+  const origin  = useAlt
+    ? document.getElementById('fOrigin').value.trim()
+    : DEFAULT_ORIGIN;
+
+  if (!origin) { setStatus('Ange utgångspunkt.', true); return; }
+
+  const btn = document.getElementById('btnCalcRoute');
+  btn.disabled = true; btn.textContent = 'Beräknar…';
+  setStatus('Söker adresser…');
+  clearRouteResult();
+
+  try {
+    const [from, to] = await Promise.all([geocode(origin), geocode(dest)]);
+    setStatus('Beräknar körväg…');
+    const meters   = await routeDistance(from.lat, from.lon, to.lat, to.lon);
+    const roundTrip= document.getElementById('fRoundTrip').checked;
+    const km       = meters / 1000 * (roundTrip ? 2 : 1);
+    const mil      = km / 10;
+    pendingMil     = mil;
+
+    document.getElementById('calcResultText').innerHTML =
+      `<strong>${mil.toFixed(1)} mil</strong> (${km.toFixed(1)} km${roundTrip ? ', tur &amp; retur' : ''}) &nbsp; ${escapeHtml(origin)} → ${escapeHtml(dest)}`;
+    document.getElementById('calcResult').classList.add('visible');
+    setStatus('');
+  } catch (e) {
+    setStatus(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Beräkna avstånd';
+  }
+}
+
+function applyMil() {
+  if (pendingMil == null) return;
+  const msEl = document.getElementById('fMilStart');
+  const meEl = document.getElementById('fMilEnd');
+  if (msEl.value !== '') {
+    meEl.value = (parseFloat(msEl.value) + pendingMil).toFixed(1);
+  } else {
+    // Just store in notes if no start reading
+    const notesEl = document.getElementById('fNotes');
+    const line     = `Körsträcka: ${pendingMil.toFixed(1)} mil (${(pendingMil*10).toFixed(1)} km)`;
+    if (!notesEl.value.includes(line)) {
+      notesEl.value = (notesEl.value ? notesEl.value + '\n' : '') + line;
+    }
+    alert(`Körde ${pendingMil.toFixed(1)} mil. Fyll i startmätarställning och klicka "Använd" igen för att räkna ut slutvärde automatiskt.`);
+  }
+}
+</script>
+</body>
+</html>
