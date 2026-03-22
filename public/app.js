@@ -1,22 +1,8 @@
-// ── Firebase ───────────────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyAAJEHOzyZDEo3oquNAc7bo4TRANKueP98",
-  authDomain: "tjanstebil-3d40e.firebaseapp.com",
-  databaseURL: "https://tjanstebil-3d40e-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "tjanstebil-3d40e",
-  storageBucket: "tjanstebil-3d40e.firebasestorage.app",
-  messagingSenderId: "1053124517142",
-  appId: "1:1053124517142:web:cdf63d313fb5dbb9d00437",
-  measurementId: "G-GQYMLCV38V"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database().ref('bookings');
+// ── Supabase & state ──────────────────────────────────────────────────────────
+let supabaseClient;
+let adminSession = null;
+let CONFIG       = {};
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-const DEFAULT_ORIGIN = 'Stjärntorget 1, Solna';
-const MONTH_NAMES    = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
-
-// ── State ─────────────────────────────────────────────────────────────────────
 let USERS        = [];
 let bookings     = [];
 let currentView  = 'calendar';
@@ -25,32 +11,42 @@ let currentMonth = new Date().getMonth();
 let editingId    = null;
 let pendingMil   = null;
 
-// ── Persistence ───────────────────────────────────────────────────────────────
-function persist() {
-  const obj = {};
-  bookings.forEach(b => { obj[b.id] = b; });
-  db.set(obj);
-}
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+// ── Constants ─────────────────────────────────────────────────────────────────
+const DEFAULT_ORIGIN = 'Stjärntorget 1, Solna';
+const MONTH_NAMES    = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
 
-// ── Date helpers ──────────────────────────────────────────────────────────────
-function pad(n)      { return String(n).padStart(2,'0'); }
-function toDateStr(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-function parseDStr(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+// ── Mappar Supabase-rad → bokningsobjekt ──────────────────────────────────────
+function mapRow(row) {
+  return {
+    id:        row.id,
+    user:      row.user_name,
+    start:     row.start_date,
+    end:       row.end_date,
+    startTime: row.start_time,
+    endTime:   row.end_time,
+    notes:     row.notes || '',
+    dest:      row.dest  || ''
+  };
+}
+
+// ── Hjälpfunktioner ───────────────────────────────────────────────────────────
+function uid()     { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function pad(n)    { return String(n).padStart(2,'0'); }
+function toDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDStr(s) { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtSv(s) {
   if (!s) return '';
   const d = parseDStr(s);
   return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].toLowerCase()} ${d.getFullYear()}`;
 }
 function today() { return toDateStr(new Date()); }
-
 function overlaps(s1,e1,s2,e2) { return s1 <= e2 && e1 >= s2; }
 
 function escHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
 function showToast(msg, type = 'info', duration = 4000, undoCallback = null) {
@@ -99,25 +95,73 @@ function refreshUserDropdowns() {
   });
 }
 
+// ── Supabase data-funktioner ──────────────────────────────────────────────────
+async function reloadBookings() {
+  const { data, error } = await supabaseClient.from('bookings').select('*');
+  if (error) { console.error('Fel vid laddning av bokningar:', error); return; }
+  bookings = (data || []).map(mapRow);
+  render();
+}
+
+async function reloadUsers() {
+  const { data, error } = await supabaseClient.from('users').select('name').order('id');
+  if (error) { console.error('Fel vid laddning av användare:', error); return; }
+  USERS = (data || []).map(r => r.name);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 (async function init() {
   document.getElementById('headerSub').textContent = 'Bil: Tjänstebil  |  Bokningssystem';
 
+  // Hämta konfiguration från Express-backend
   try {
-    const res = await fetch('/api/users');
-    USERS = await res.json();
-  } catch {
-    USERS = [];
-    showToast('Kunde inte ladda användarlistan.', 'danger');
+    const cfg = await fetch('/api/config').then(r => r.json());
+    CONFIG = cfg;
+    supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  } catch (e) {
+    showToast('Kunde inte ladda konfigurationen.', 'danger', 8000);
+    return;
   }
 
-  refreshUserDropdowns();
+  // Kontrollera befintlig admin-session
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  adminSession = session;
+  if (session) renderAdminPanel();
 
-  db.on('value', snapshot => {
-    const data = snapshot.val();
-    bookings = data ? Object.values(data) : [];
-    render();
+  // Lyssna på auth-ändringar
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    adminSession = session;
+    if (event === 'SIGNED_IN') {
+      document.getElementById('adminOverlay').classList.add('hidden');
+      renderAdminPanel();
+      showToast('Inloggad som admin.', 'success');
+    }
+    if (event === 'SIGNED_OUT') {
+      document.getElementById('adminPanelContainer').style.display = 'none';
+    }
   });
+
+  // Ladda användare och bokningar
+  await reloadUsers();
+  refreshUserDropdowns();
+  await reloadBookings();
+
+  // Realtidslyssnare för bokningar
+  supabaseClient.channel('bookings-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async () => {
+      await reloadBookings();
+    })
+    .subscribe();
+
+  // Realtidslyssnare för användare
+  supabaseClient.channel('users-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, async () => {
+      await reloadUsers();
+      refreshUserDropdowns();
+      if (isAdmin()) renderAdminPanel();
+      renderSummary();
+    })
+    .subscribe();
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -340,7 +384,7 @@ function validateDates() {
 }
 
 // ── Save / delete ─────────────────────────────────────────────────────────────
-function saveBooking() {
+async function saveBooking() {
   if (!validateDates()) return;
 
   const start = document.getElementById('fStart').value;
@@ -362,42 +406,53 @@ function saveBooking() {
     return;
   }
 
-  const booking = {
-    id:        editingId || uid(),
-    user:      document.getElementById('fUser').value,
-    start, end,
-    startTime: document.getElementById('fStartTime').value,
-    endTime:   document.getElementById('fEndTime').value,
-    notes:     document.getElementById('fNotes').value.trim(),
-    dest:      document.getElementById('fDest').value.trim(),
+  const row = {
+    id:         editingId || uid(),
+    user_name:  document.getElementById('fUser').value,
+    start_date: start,
+    end_date:   end,
+    start_time: startTime,
+    end_time:   endTime,
+    notes:      document.getElementById('fNotes').value.trim(),
+    dest:       document.getElementById('fDest').value.trim()
   };
 
+  let error;
   if (editingId) {
-    const idx = bookings.findIndex(b => b.id === editingId);
-    bookings[idx] = booking;
+    ({ error } = await supabaseClient.from('bookings').update(row).eq('id', editingId));
   } else {
-    bookings.push(booking);
+    ({ error } = await supabaseClient.from('bookings').insert(row));
   }
 
-  persist();
+  if (error) { showToast('Fel vid sparande: ' + error.message, 'danger'); return; }
   closeModal();
-  render();
+  // realtidskanal triggar reloadBookings() automatiskt
 }
 
-function deleteBooking() {
+async function deleteBooking() {
   if (!editingId) return;
   const removed = bookings.find(b => b.id === editingId);
   if (!removed) return;
-  bookings = bookings.filter(b => b.id !== editingId);
-  persist();
+
+  const { error } = await supabaseClient.from('bookings').delete().eq('id', editingId);
+  if (error) { showToast('Fel vid borttagning: ' + error.message, 'danger'); return; }
+
   closeModal();
-  render();
-  showToast(`Bokning för ${escHtml(removed.user)} borttagen.`, 'danger', 5000, () => {
-    bookings.push(removed);
-    persist();
-    render();
+  showToast(`Bokning för ${escHtml(removed.user)} borttagen.`, 'danger', 5000, async () => {
+    // Ångra: återskapa bokningen
+    await supabaseClient.from('bookings').insert({
+      id:         removed.id,
+      user_name:  removed.user,
+      start_date: removed.start,
+      end_date:   removed.end,
+      start_time: removed.startTime,
+      end_time:   removed.endTime,
+      notes:      removed.notes,
+      dest:       removed.dest
+    });
     showToast('Bokning återställd.', 'success', 3000);
   });
+  // realtidskanal triggar reloadBookings()
 }
 
 // ── Address / route ───────────────────────────────────────────────────────────
@@ -481,9 +536,8 @@ function applyMil() {
   }
 }
 
-// ── Admin auth ────────────────────────────────────────────────────────────────
-function getAdminToken() { return localStorage.getItem('adminToken'); }
-function isAdmin()       { return !!getAdminToken(); }
+// ── Admin auth (Supabase Auth) ────────────────────────────────────────────────
+function isAdmin() { return !!adminSession; }
 
 function openAdminPanel() {
   if (isAdmin()) {
@@ -501,79 +555,42 @@ async function adminLogin() {
   const err = document.getElementById('adminLoginError');
   err.style.display = 'none';
 
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw })
-    });
-    if (!res.ok) { err.style.display = ''; return; }
-    const { token } = await res.json();
-    localStorage.setItem('adminToken', token);
-    document.getElementById('adminOverlay').classList.add('hidden');
-    renderAdminPanel();
-    showToast('Inloggad som admin.', 'success');
-  } catch {
-    err.style.display = '';
-  }
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email:    CONFIG.adminEmail,
+    password: pw
+  });
+
+  if (error) { err.style.display = ''; return; }
+  // onAuthStateChange hanterar panel + toast automatiskt
 }
 
-function adminLogout() {
-  localStorage.removeItem('adminToken');
-  document.getElementById('adminPanelContainer').style.display = 'none';
+async function adminLogout() {
+  await supabaseClient.auth.signOut();
   showToast('Utloggad.', 'info');
+  // onAuthStateChange döljer panelen
 }
 
+// ── Användarhantering (direkt mot Supabase med RLS) ───────────────────────────
 async function adminAddUser() {
   const input = document.getElementById('adminNewUser');
   const name  = input.value.trim();
   if (!name) return;
 
-  const res = await fetch('/api/users', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getAdminToken()}`
-    },
-    body: JSON.stringify({ name })
-  });
-
-  if (res.status === 401 || res.status === 403) {
-    adminLogout();
-    showToast('Sessionen har gått ut. Logga in igen.', 'danger');
+  const { error } = await supabaseClient.from('users').insert({ name });
+  if (error) {
+    showToast(error.code === '23505' ? 'Användaren finns redan.' : error.message, 'danger');
     return;
   }
-  if (!res.ok) {
-    const e = await res.json();
-    showToast(e.error || 'Fel vid tillägg.', 'danger');
-    return;
-  }
-
-  USERS = await res.json();
   input.value = '';
-  refreshUserDropdowns();
-  renderAdminPanel();
-  renderSummary();
   showToast(`${name} tillagd.`, 'success');
+  // realtidskanal uppdaterar USERS + dropdowns + panel
 }
 
 async function adminRemoveUser(name) {
-  const res = await fetch(`/api/users/${encodeURIComponent(name)}`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${getAdminToken()}` }
-  });
-
-  if (res.status === 401 || res.status === 403) {
-    adminLogout();
-    showToast('Sessionen har gått ut. Logga in igen.', 'danger');
-    return;
-  }
-
-  USERS = await res.json();
-  refreshUserDropdowns();
-  renderAdminPanel();
-  renderSummary();
+  const { error } = await supabaseClient.from('users').delete().eq('name', name);
+  if (error) { showToast(error.message, 'danger'); return; }
   showToast(`${name} borttagen.`, 'danger');
+  // realtidskanal uppdaterar USERS + dropdowns + panel
 }
 
 function renderAdminPanel() {
