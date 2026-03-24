@@ -271,7 +271,7 @@ function renderCalendar() {
       cell.appendChild(chip);
     });
 
-    if (!isPast) cell.onclick = () => openNewBookingDate(ds);
+    cell.onclick = () => openNewBookingDate(ds);
     grid.appendChild(cell);
   }
 }
