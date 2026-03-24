@@ -8,8 +8,9 @@ let bookings     = [];
 let currentView  = 'calendar';
 let currentYear  = new Date().getFullYear();
 let currentMonth = new Date().getMonth();
-let editingId    = null;
-let pendingMil   = null;
+let editingId      = null;
+let pendingMil     = null;
+let pendingMeters  = null;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DEFAULT_ORIGIN = 'Stjärntorget 1, Solna';
@@ -562,7 +563,8 @@ function clearRouteResult() {
   document.getElementById('calcResult').classList.remove('visible');
   document.getElementById('addrStatus').textContent = '';
   document.getElementById('addrStatus').className   = 'addr-status';
-  pendingMil = null;
+  pendingMil    = null;
+  pendingMeters = null;
 }
 
 function setStatus(msg, isError) {
@@ -606,21 +608,32 @@ async function calcRoute() {
   try {
     const [from, to] = await Promise.all([geocode(origin), geocode(dest)]);
     setStatus('Beräknar körväg\u2026');
-    const meters    = await routeDistance(from.lat, from.lon, to.lat, to.lon);
-    const roundTrip = document.getElementById('fRoundTrip').checked;
-    const km        = meters / 1000 * (roundTrip ? 2 : 1);
-    const mil       = km / 10;
-    pendingMil      = mil;
-
-    document.getElementById('calcResultText').innerHTML =
-      `<strong>${mil.toFixed(1)} mil</strong> (${km.toFixed(1)} km${roundTrip ? ', tur &amp; retur' : ''}) &nbsp; ${origin} &rarr; ${dest}`;
-    document.getElementById('calcResult').classList.add('visible');
+    pendingMeters = await routeDistance(from.lat, from.lon, to.lat, to.lon);
+    showRouteResult(origin, dest);
     setStatus('');
   } catch (e) {
     setStatus(e.message, true);
   } finally {
     btn.disabled = false; btn.textContent = 'Beräkna avstånd';
   }
+}
+
+function showRouteResult(origin, dest) {
+  const roundTrip = document.getElementById('fRoundTrip').checked;
+  const km        = pendingMeters / 1000 * (roundTrip ? 2 : 1);
+  const mil       = km / 10;
+  pendingMil      = mil;
+  document.getElementById('calcResultText').innerHTML =
+    `<strong>${mil.toFixed(1)} mil</strong> (${km.toFixed(1)} km${roundTrip ? ', tur &amp; retur' : ''}) &nbsp; ${origin} &rarr; ${dest}`;
+  document.getElementById('calcResult').classList.add('visible');
+}
+
+function updateRoundTrip() {
+  if (pendingMeters == null) return;
+  const dest   = document.getElementById('fDest').value.trim();
+  const useAlt = document.getElementById('altOrigin').checked;
+  const origin = useAlt ? document.getElementById('fOrigin').value.trim() : DEFAULT_ORIGIN;
+  showRouteResult(origin, dest);
 }
 
 function applyMil() {
