@@ -50,6 +50,7 @@
         <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
       </div>
     </div>
+    <div id="weatherWidget" class="weather-pill"></div>
     <div class="field" style="flex:0 0 auto">
       <label>&nbsp;</label>
       <button class="btn btn-primary" onclick="openNewBooking()">+ Ny bokning</button>
@@ -67,7 +68,6 @@
       <div style="display:flex;align-items:center;gap:.75rem">
         <h2 id="calTitle"></h2>
         <button class="cal-nav" style="font-size:.75rem;padding:.25rem .6rem" onclick="goToday()">Idag</button>
-        <span id="weatherWidget" style="font-size:.8rem;color:var(--muted);white-space:nowrap"></span>
       </div>
       <div style="display:flex;align-items:center;gap:.35rem">
         <button class="cal-nav" onclick="changeMonth(1)" title="Nästa månad">&#8250;</button>

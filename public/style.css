@@ -293,3 +293,22 @@ input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
   outline: none;
 }
 .admin-add-row input:focus { border-color: var(--primary); }
+
+/* ─── Weather pill ────────────────────────────────── */
+.weather-pill {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #F3E5FF;
+  border: 1px solid #E4B8F8;
+  border-radius: 20px;
+  padding: .3rem .85rem;
+  font-size: .82rem;
+  white-space: nowrap;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.weather-pill:empty { display: none; }
+.weather-loc  { font-size: .7rem; color: var(--muted); }
+.weather-main { font-weight: 700; color: var(--primary); }
+.weather-wind { color: var(--muted); }

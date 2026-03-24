@@ -646,9 +646,12 @@ async function loadWeather() {
     const url  = 'https://api.open-meteo.com/v1/forecast?latitude=59.3754&longitude=18.0128&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=Europe/Stockholm';
     const data = await fetch(url).then(r => r.json());
     const { temperature_2m, weather_code, wind_speed_10m } = data.current;
-    document.getElementById('weatherWidget').textContent =
-      `${weatherEmoji(weather_code)} ${temperature_2m.toFixed(1)}°C  💨 ${wind_speed_10m.toFixed(1)} m/s`;
+    const el = document.getElementById('weatherWidget');
+    el.innerHTML =
+      `<span class="weather-loc">📍 Solna</span>` +
+      `<span class="weather-main">${weatherEmoji(weather_code)} ${temperature_2m.toFixed(1)}°C</span>` +
+      `<span class="weather-wind">💨 ${wind_speed_10m.toFixed(1)} m/s</span>`;
   } catch {
-    document.getElementById('weatherWidget').textContent = '';
+    document.getElementById('weatherWidget').innerHTML = '';
   }
 }
