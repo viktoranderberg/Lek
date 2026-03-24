@@ -177,16 +177,19 @@ function setView(v) {
   currentView = v;
   document.getElementById('calView').style.display          = v === 'calendar' ? '' : 'none';
   document.getElementById('listView').style.display         = v === 'list'     ? '' : 'none';
+  document.getElementById('statsView').style.display        = v === 'stats'    ? '' : 'none';
   document.getElementById('listOnlyControls').style.display = v === 'list'     ? 'flex' : 'none';
   document.getElementById('btnCalendar').classList.toggle('active', v === 'calendar');
   document.getElementById('btnList').classList.toggle('active', v === 'list');
+  document.getElementById('btnStats').classList.toggle('active', v === 'stats');
   render();
 }
 
 function render() {
   renderSummary();
   if (currentView === 'calendar') renderCalendar();
-  else renderList();
+  else if (currentView === 'list') renderList();
+  else renderStats();
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
@@ -218,7 +221,9 @@ function goToday() {
 }
 
 function exportCsv() {
-  const filter = document.getElementById('filterUser').value;
+  const filterEl = document.getElementById('exportUserFilter') ||
+                   document.getElementById('filterUser');
+  const filter = filterEl ? filterEl.value : '';
   const rows = (filter ? bookings.filter(b => b.user === filter) : bookings)
     .sort((a,b) => a.start.localeCompare(b.start));
   const header = ['Användare','Startdatum','Starttid','Slutdatum','Sluttid','Destination','Anteckningar'];
@@ -318,6 +323,82 @@ function renderList() {
         </div>
       </div>`;
   }).join('');
+}
+
+// ── Stats view ────────────────────────────────────────────────────────────────
+function renderStats() {
+  const el = document.getElementById('statsView');
+
+  // Aggregera allt i en enda genomgång
+  const userMap = {};
+  const destMap = {};
+  let totalMil = 0;
+  bookings.forEach(b => {
+    if (!userMap[b.user]) userMap[b.user] = { count: 0, mil: 0 };
+    userMap[b.user].count++;
+    const m = (b.notes || '').match(/Körsträcka: ([\d.]+) mil/);
+    if (m) {
+      const mil = parseFloat(m[1]);
+      userMap[b.user].mil += mil;
+      totalMil += mil;
+    }
+    if (b.dest && b.dest.trim()) {
+      const key = b.dest.trim();
+      destMap[key] = (destMap[key] || 0) + 1;
+    }
+  });
+
+  const userRows = Object.entries(userMap)
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([name, s]) =>
+      `<tr>
+         <td>${escHtml(name)}</td>
+         <td>${s.count}</td>
+         <td>${s.mil > 0 ? s.mil.toFixed(1) + ' mil' : '—'}</td>
+       </tr>`
+    ).join('');
+  const topDests = Object.entries(destMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([d, c], i) =>
+      `<tr><td>${i + 1}. ${escHtml(d)}</td><td>${c} ggr</td></tr>`
+    ).join('');
+
+  // Export-sektion
+  const userOptions = USERS.map(u =>
+    `<option value="${escHtml(u)}">${escHtml(u)}</option>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="stats-grid">
+      <div class="stats-card stats-card-wide">
+        <div class="stats-card-title">Körningar per användare</div>
+        <table class="stats-table">
+          <thead><tr><th>Användare</th><th>Körningar</th><th>Mil (registrerat)</th></tr></thead>
+          <tbody>${userRows || '<tr><td colspan="3" class="stats-empty">Inga bokningar ännu</td></tr>'}</tbody>
+        </table>
+        ${totalMil > 0 ? `<div class="stats-total">Total registrerad körsträcka: <strong>${totalMil.toFixed(1)} mil</strong></div>` : ''}
+      </div>
+      ${topDests ? `
+      <div class="stats-card">
+        <div class="stats-card-title">Vanligaste destinationer</div>
+        <table class="stats-table">
+          <thead><tr><th>Destination</th><th>Antal</th></tr></thead>
+          <tbody>${topDests}</tbody>
+        </table>
+      </div>` : ''}
+      <div class="stats-card">
+        <div class="stats-card-title">Exportera CSV</div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">Ladda ner alla bokningar eller filtrera per användare.</p>
+        <div class="stats-export-row">
+          <select id="exportUserFilter">
+            <option value="">Alla användare</option>
+            ${userOptions}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="exportCsv()">Ladda ner CSV</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 // ── Modal open/close ──────────────────────────────────────────────────────────

@@ -54,11 +54,18 @@ main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
   flex-wrap: wrap;
   gap: 1rem;
   align-items: flex-end;
+  justify-content: center;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   margin-bottom: 1.5rem;
+}
+.controls-center {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 .field { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 160px; }
 .field label {
@@ -312,3 +319,39 @@ input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
 .weather-loc  { font-size: .7rem; color: var(--muted); }
 .weather-main { font-weight: 700; color: var(--primary); }
 .weather-wind { color: var(--muted); }
+
+/* ─── Stats view ──────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+.stats-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem;
+}
+.stats-card-wide { grid-column: 1 / -1; }
+.stats-card-title {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: .85rem;
+}
+.stats-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.stats-table th {
+  text-align: left; color: var(--muted); font-size: .7rem;
+  text-transform: uppercase; letter-spacing: .05em;
+  padding-bottom: .4rem; border-bottom: 1px solid var(--border);
+}
+.stats-table td { padding: .35rem 0; border-bottom: 1px solid var(--border); }
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-empty { color: var(--muted); text-align: center; padding: 1rem 0; }
+.stats-total {
+  font-size: .82rem; color: var(--muted); margin-top: .85rem;
+  padding-top: .75rem; border-top: 1px solid var(--border);
+}
+.stats-total strong { color: var(--primary); }
+.stats-export-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+.stats-export-row select {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: .4rem .75rem; font-size: .9rem; outline: none; flex: 1;
+}
+.stats-export-row select:focus { border-color: var(--primary); }

@@ -31,13 +31,6 @@
   <div class="summary" id="summary"></div>
 
   <div class="controls">
-    <div class="field">
-      <label>Vy</label>
-      <div class="view-toggle">
-        <button id="btnCalendar" class="active" onclick="setView('calendar')">Kalender</button>
-        <button id="btnList"     onclick="setView('list')">Lista</button>
-      </div>
-    </div>
     <div id="listOnlyControls" style="display:none;flex:1;gap:1rem;flex-wrap:wrap">
       <div class="field">
         <label>Filtrera användare</label>
@@ -50,11 +43,20 @@
         <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
       </div>
     </div>
-    <div id="weatherWidget" class="weather-pill"></div>
-    <div class="field" style="flex:0 0 auto">
-      <label>&nbsp;</label>
-      <button class="btn btn-primary" onclick="openNewBooking()">+ Ny bokning</button>
-      <button class="btn btn-sm" style="border:1px solid var(--border);margin-top:.35rem" onclick="exportCsv()">Exportera CSV</button>
+    <div class="controls-center">
+      <div class="field">
+        <label>Vy</label>
+        <div class="view-toggle">
+          <button id="btnCalendar" class="active" onclick="setView('calendar')">Kalender</button>
+          <button id="btnList"     onclick="setView('list')">Lista</button>
+          <button id="btnStats"    onclick="setView('stats')">Statistik</button>
+        </div>
+      </div>
+      <div id="weatherWidget" class="weather-pill"></div>
+      <div class="field" style="flex:0 0 auto">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" onclick="openNewBooking()">+ Ny bokning</button>
+      </div>
     </div>
   </div>
 
@@ -81,6 +83,9 @@
   <div id="listView" style="display:none">
     <div class="booking-list" id="bookingList"></div>
   </div>
+
+  <!-- Stats -->
+  <div id="statsView" style="display:none"></div>
 </main>
 
 <!-- ─── Bokningsmodal ────────────────────────────────────────── -->
