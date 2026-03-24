@@ -398,9 +398,14 @@ async function saveBooking() {
     return;
   }
 
-  const conflict = bookings.find(b =>
-    b.id !== editingId && overlaps(b.start, b.end, start, end)
-  );
+  const newStart = `${start} ${startTime || '00:00'}`;
+  const newEnd   = `${end} ${endTime || '23:59'}`;
+  const conflict = bookings.find(b => {
+    if (b.id === editingId) return false;
+    const bStart = `${b.start} ${b.startTime || '00:00'}`;
+    const bEnd   = `${b.end} ${b.endTime || '23:59'}`;
+    return bStart <= newEnd && bEnd >= newStart;
+  });
   if (conflict) {
     showToast(`Konflikt! ${escHtml(conflict.user)} har bokat bilen ${conflict.start} \u2013 ${conflict.end}.`, 'danger', 5000);
     return;
@@ -417,11 +422,17 @@ async function saveBooking() {
     dest:       document.getElementById('fDest').value.trim()
   };
 
+  const saveBtn = document.getElementById('overlay').querySelector('.btn-primary:last-child');
+  saveBtn.disabled = true;
   let error;
-  if (editingId) {
-    ({ error } = await supabaseClient.from('bookings').update(row).eq('id', editingId));
-  } else {
-    ({ error } = await supabaseClient.from('bookings').insert(row));
+  try {
+    if (editingId) {
+      ({ error } = await supabaseClient.from('bookings').update(row).eq('id', editingId));
+    } else {
+      ({ error } = await supabaseClient.from('bookings').insert(row));
+    }
+  } finally {
+    saveBtn.disabled = false;
   }
 
   if (error) { showToast('Fel vid sparande: ' + error.message, 'danger'); return; }
@@ -434,8 +445,10 @@ async function deleteBooking() {
   const removed = bookings.find(b => b.id === editingId);
   if (!removed) return;
 
+  const deleteBtn = document.getElementById('btnDelete');
+  deleteBtn.disabled = true;
   const { error } = await supabaseClient.from('bookings').delete().eq('id', editingId);
-  if (error) { showToast('Fel vid borttagning: ' + error.message, 'danger'); return; }
+  if (error) { deleteBtn.disabled = false; showToast('Fel vid borttagning: ' + error.message, 'danger'); return; }
 
   closeModal();
   showToast(`Bokning för ${escHtml(removed.user)} borttagen.`, 'danger', 5000, async () => {
