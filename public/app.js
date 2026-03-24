@@ -141,10 +141,11 @@ async function reloadUsers() {
     }
   });
 
-  // Ladda användare och bokningar
+  // Ladda användare, bokningar och väder
   await reloadUsers();
   refreshUserDropdowns();
   await reloadBookings();
+  loadWeather();
 
   // Realtidslyssnare för bokningar
   supabaseClient.channel('bookings-changes')
@@ -174,8 +175,9 @@ async function reloadUsers() {
 // ── View switching ────────────────────────────────────────────────────────────
 function setView(v) {
   currentView = v;
-  document.getElementById('calView').style.display  = v === 'calendar' ? '' : 'none';
-  document.getElementById('listView').style.display = v === 'list'     ? '' : 'none';
+  document.getElementById('calView').style.display          = v === 'calendar' ? '' : 'none';
+  document.getElementById('listView').style.display         = v === 'list'     ? '' : 'none';
+  document.getElementById('listOnlyControls').style.display = v === 'list'     ? 'flex' : 'none';
   document.getElementById('btnCalendar').classList.toggle('active', v === 'calendar');
   document.getElementById('btnList').classList.toggle('active', v === 'list');
   render();
@@ -626,4 +628,27 @@ function renderAdminPanel() {
         <button class="btn btn-primary btn-sm" onclick="adminAddUser()">Lägg till</button>
       </div>
     </div>`;
+}
+
+// ── Väder (Open-Meteo, Solna) ─────────────────────────────────────────────────
+function weatherEmoji(code) {
+  if (code === 0)  return '☀️';
+  if (code <= 3)   return '⛅';
+  if (code <= 48)  return '🌫️';
+  if (code <= 67)  return '🌧️';
+  if (code <= 77)  return '❄️';
+  if (code <= 82)  return '🌦️';
+  return '⛈️';
+}
+
+async function loadWeather() {
+  try {
+    const url  = 'https://api.open-meteo.com/v1/forecast?latitude=59.3754&longitude=18.0128&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=Europe/Stockholm';
+    const data = await fetch(url).then(r => r.json());
+    const { temperature_2m, weather_code, wind_speed_10m } = data.current;
+    document.getElementById('weatherWidget').textContent =
+      `${weatherEmoji(weather_code)} ${temperature_2m.toFixed(1)}°C  💨 ${wind_speed_10m.toFixed(1)} m/s`;
+  } catch {
+    document.getElementById('weatherWidget').textContent = '';
+  }
 }

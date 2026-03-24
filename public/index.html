@@ -38,15 +38,17 @@
         <button id="btnList"     onclick="setView('list')">Lista</button>
       </div>
     </div>
-    <div class="field">
-      <label>Filtrera användare</label>
-      <select id="filterUser" onchange="render()">
-        <option value="">Alla användare</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Sök</label>
-      <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
+    <div id="listOnlyControls" style="display:none;flex:1;gap:1rem;flex-wrap:wrap">
+      <div class="field">
+        <label>Filtrera användare</label>
+        <select id="filterUser" onchange="render()">
+          <option value="">Alla användare</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sök</label>
+        <input type="text" id="searchInput" placeholder="Destination, anteckning…" oninput="render()" />
+      </div>
     </div>
     <div class="field" style="flex:0 0 auto">
       <label>&nbsp;</label>
@@ -65,6 +67,7 @@
       <div style="display:flex;align-items:center;gap:.75rem">
         <h2 id="calTitle"></h2>
         <button class="cal-nav" style="font-size:.75rem;padding:.25rem .6rem" onclick="goToday()">Idag</button>
+        <span id="weatherWidget" style="font-size:.8rem;color:var(--muted);white-space:nowrap"></span>
       </div>
       <div style="display:flex;align-items:center;gap:.35rem">
         <button class="cal-nav" onclick="changeMonth(1)" title="Nästa månad">&#8250;</button>
