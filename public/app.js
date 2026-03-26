@@ -624,7 +624,7 @@ function showRouteResult(origin, dest) {
   const mil       = km / 10;
   pendingMil      = mil;
   document.getElementById('calcResultText').innerHTML =
-    `<strong>${mil.toFixed(1)} mil</strong> (${km.toFixed(1)} km${roundTrip ? ', tur &amp; retur' : ''}) &nbsp; ${origin} &rarr; ${dest}`;
+    `<strong>${mil.toFixed(1)} mil</strong> (${km.toFixed(1)} km${roundTrip ? ', tur &amp; retur' : ''}) &nbsp; ${escHtml(origin)} &rarr; ${escHtml(dest)}`;
   document.getElementById('calcResult').classList.add('visible');
 }
 

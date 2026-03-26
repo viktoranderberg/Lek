@@ -4,6 +4,16 @@ const path    = require('path');
 
 const app = express();
 app.use(express.json());
+
+// ── Säkerhetsheaders ──────────────────────────────────────────────────────────
+app.use((_req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Exponerar icke-hemliga Supabase-värden till frontend
