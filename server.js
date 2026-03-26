@@ -14,12 +14,6 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Blockera direkt åtkomst till källkoden
-app.get('/app.js',     (_req, res) => res.status(404).end());
-app.get('/app.min.js', (req,  res, next) => {
-  if (!req.get('Referer')) return res.status(404).end();
-  next();
-});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
