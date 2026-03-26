@@ -99,14 +99,14 @@ function refreshUserDropdowns() {
 // ── Supabase data-funktioner ──────────────────────────────────────────────────
 async function reloadBookings() {
   const { data, error } = await supabaseClient.from('bookings').select('*');
-  if (error) { console.error('Fel vid laddning av bokningar:', error); return; }
+  if (error) { showToast('Kunde inte ladda bokningar.', 'danger', 5000); return; }
   bookings = (data || []).map(mapRow);
   render();
 }
 
 async function reloadUsers() {
   const { data, error } = await supabaseClient.from('users').select('name').order('id');
-  if (error) { console.error('Fel vid laddning av användare:', error); return; }
+  if (error) { showToast('Kunde inte ladda användare.', 'danger', 5000); return; }
   USERS = (data || []).map(r => r.name);
 }
 
@@ -289,15 +289,13 @@ function renderList() {
   const filter = document.getElementById('filterUser').value;
   const q      = (document.getElementById('searchInput')?.value || '').toLowerCase();
   let list = [...bookings]
-    .filter(b => !filter || b.user === filter)
+    .filter(b =>
+      (!filter || b.user === filter) &&
+      (!q || (b.dest  || '').toLowerCase().includes(q) ||
+             (b.notes || '').toLowerCase().includes(q) ||
+             (b.user  || '').toLowerCase().includes(q))
+    )
     .sort((a,b) => a.start.localeCompare(b.start));
-  if (q) {
-    list = list.filter(b =>
-      (b.dest  || '').toLowerCase().includes(q) ||
-      (b.notes || '').toLowerCase().includes(q) ||
-      (b.user  || '').toLowerCase().includes(q)
-    );
-  }
   const el = document.getElementById('bookingList');
 
   if (!list.length) {
@@ -711,10 +709,10 @@ function renderAdminPanel() {
         <h4>Användarhantering</h4>
         <button class="btn btn-sm" style="border:1px solid var(--border)" onclick="adminLogout()">Logga ut</button>
       </div>
-      ${USERS.map(u => `
+      ${USERS.map((u, i) => `
         <div class="admin-user-row">
           <span>${escHtml(u)}</span>
-          <button class="btn btn-sm btn-danger" onclick="adminRemoveUser('${escHtml(u)}')">Ta bort</button>
+          <button class="btn btn-sm btn-danger" onclick="adminRemoveUser(USERS[${i}])">Ta bort</button>
         </div>`).join('')}
       <div class="admin-add-row">
         <input id="adminNewUser" type="text" placeholder="Nytt användarnamn"
