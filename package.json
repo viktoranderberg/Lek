@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "terser public/app.js -o public/app.min.js --compress --mangle --mangle-props keep_quoted=true"
+    "build": "terser public/app.js -o public/app.min.js --compress --mangle"
   },
   "dependencies": {
     "dotenv": "^16.0.0",
