@@ -14,6 +14,9 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Blockera direkt åtkomst till källkoden
+app.get('/app.js', (_req, res) => res.status(404).end());
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Exponerar icke-hemliga Supabase-värden till frontend
